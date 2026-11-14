@@ -1,0 +1,6 @@
+FROM node:24-bookworm-slim
+WORKDIR /app
+COPY --chown=node:node src ./src
+COPY --chown=node:node public ./public
+USER node
+CMD ["node", "src/server.mjs"]

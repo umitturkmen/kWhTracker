@@ -1,0 +1,5 @@
+.env
+agent.config.json
+data/
+node_modules/
+.git/

@@ -1,0 +1,5 @@
+{
+  "server": "http://127.0.0.1:8787",
+  "intervalSeconds": 60,
+  "pc": { "name": "Bilgisayarım", "aida64": true, "nvidia": true }
+}

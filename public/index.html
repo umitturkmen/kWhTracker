@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#132923">
+  <title>kWhTracker</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/preferences.js"></script>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/#genel"><span class="brand-mark"><svg><use href="/icons.svg#bolt"/></svg></span>kWhTracker</a>
+    <nav aria-label="Panel">
+      <a href="/#genel" class="nav-link"><svg><use href="/icons.svg#layout"/></svg> <span>Genel bakış</span></a>
+      <a href="/#cihazlar" class="nav-link"><svg><use href="/icons.svg#devices"/></svg> <span>Cihazlar</span></a>
+      <button id="settings" class="nav-link" type="button"><svg><use href="/icons.svg#settings"/></svg> <span>Tarife</span></button>
+    </nav>
+    <div class="preferences">
+      <label class="preference"><span>Dil</span><select id="language" aria-label="Dil">
+        <option value="tr" lang="tr">Türkçe</option><option value="en" lang="en">English</option>
+      </select></label>
+      <label class="preference"><span>Görünüm</span><select id="theme" aria-label="Görünüm">
+        <option value="system">Sistem</option><option value="light">Açık</option><option value="dark">Koyu</option>
+      </select></label>
+    </div>
+    <div class="collector">
+      <span class="collector-dot" id="collector-dot"></span>
+      <div><strong id="collector-status">Toplayıcı</strong><small id="collector-time">Durum alınıyor…</small></div>
+    </div>
+  </aside>
+  <main id="genel">
+    <header class="page-header">
+      <div><p class="date" id="date"></p><a id="device-back" href="/#cihazlar" hidden>‹ Cihazlara dön</a><h1 id="page-title">Enerji takibi</h1></div>
+      <div class="header-actions"><span id="demo" class="badge" hidden>Örnek veriler</span>
+        <button class="primary" id="refresh" type="button" disabled><svg><use href="/icons.svg#refresh"/></svg>Şimdi ölç</button></div>
+    </header>
+    <p id="notice" class="notice" role="status" hidden></p>
+    <p id="issues" class="notice" hidden></p>
+    <p id="device-scope" class="notice" hidden>Güç, erişilebilen PC sensörlerinden gelir. kWh ve maliyet bu örneklerden hesaplanır. Prizden çekilen toplam tüketim ayrıca ölçülür.</p>
+    <nav id="pc-sections" class="pc-sections" aria-label="Bilgisayar bölümleri" hidden>
+      <a href="#chart-heading">Enerji ve maliyet</a><a href="#pc-activity">Açık kalma süresi</a><a href="#pc-telemetry">Sensörler</a><a href="#pc-inventory">Donanım</a>
+    </nav>
+    <section class="metrics" aria-label="Dönem özetleri">
+      <article class="reading reading-first"><svg><use href="/icons.svg#bolt"/></svg><div><p>Anlık güç</p><strong id="power">—</strong><small id="power-caption">Sayaç verisi bekleniyor</small></div></article>
+      <article class="reading"><svg><use href="/icons.svg#activity"/></svg><div><p id="energy-label">Haftalık tüketim</p><strong id="energy">—</strong><small id="energy-caption">Ölçülen tüketim</small></div></article>
+      <article class="reading"><svg><use href="/icons.svg#wallet"/></svg><div><p id="cost-label">Haftalık maliyet</p><strong id="cost">—</strong><small id="cost-caption">Tarife bekleniyor</small></div></article>
+      <article class="reading"><svg><use href="/icons.svg#devices"/></svg><div><p id="network-label">Ağdaki cihazlar</p><strong id="network-count">—</strong><small id="network-caption">Ağ verisi bekleniyor</small></div></article>
+    </section>
+    <section class="panel chart-panel" aria-labelledby="chart-heading">
+      <header class="section-head"><div><h2 id="chart-heading">Tüketim geçmişi</h2><p id="range"></p></div>
+        <div id="periods" class="segments" role="group" aria-label="Dönem">
+          <button type="button" data-period="day">Gün</button><button type="button" data-period="week" aria-pressed="true">Hafta</button><button type="button" data-period="month">Ay</button><button type="button" data-period="year">Yıl</button><button type="button" data-period="all">Toplam</button>
+        </div>
+      </header>
+      <div class="chart-view"><div id="chart-empty" hidden>Ölçüm geldiğinde tüketim burada görünecek.</div><div id="chart" role="group" aria-label="Tüketim grafiği"></div></div>
+      <footer class="chart-footer"><span><i></i> <span id="chart-legend">Ölçülen tüketim</span></span><span id="chart-focus" role="status">kWh</span></footer>
+    </section>
+    <div id="device-page" hidden>
+      <section id="pc-activity" class="panel detail-panel activity-panel" aria-labelledby="activity-title" hidden>
+        <header class="section-head"><div><h2 id="activity-title">Açık kalma süresi</h2><p id="activity-caption"></p></div>
+          <label class="pc-select"><span>Dönem</span><select id="activity-period" aria-label="Dönem">
+            <option value="day">Bugün</option><option value="week">Bu hafta</option><option value="month">Bu ay</option>
+            <option value="year">Bu yıl</option><option value="all">Tüm kayıtlar</option>
+          </select></label>
+        </header>
+        <dl class="activity-summary" id="activity-summary"></dl>
+        <div id="activity-graph"></div>
+        <div class="activity-ranges">
+          <h3 id="activity-ranges-title">Açık kaldığı saatler</h3>
+          <ul id="activity-sessions" aria-labelledby="activity-ranges-title"></ul>
+        </div>
+      </section>
+      <div class="detail-grid">
+        <section class="panel detail-panel" aria-labelledby="device-info-title">
+          <h2 id="device-info-title">Cihaz bilgileri</h2>
+          <dl id="device-details"></dl>
+        </section>
+        <section class="panel detail-panel" aria-labelledby="device-period-title">
+          <header class="section-head"><h2 id="device-period-title">Dönem özetleri</h2><button class="export" id="export" type="button">CSV indir</button></header>
+          <dl id="device-periods"></dl>
+        </section>
+      </div>
+      <section id="device-sensors" class="panel detail-panel" aria-labelledby="sensor-title" hidden>
+        <h2 id="sensor-title">Enerjiye dahil sensörler</h2>
+        <div id="sensor-rows"></div>
+      </section>
+      <section id="pc-telemetry" class="panel detail-panel pc-panel" aria-labelledby="telemetry-title" hidden>
+        <header class="section-head"><div><h2 id="telemetry-title">Donanım sensörleri</h2><p id="telemetry-time"></p></div></header>
+        <div id="pc-trends" class="trend-grid"></div>
+        <div class="pc-toolbar">
+          <label class="search"><svg><use href="/icons.svg#search"/></svg><input id="sensor-search" type="search" aria-label="Sensör ara" placeholder="Sensör veya kod ara"></label>
+          <label class="pc-select"><span>Kaynak</span><select id="sensor-source" aria-label="Kaynak"><option value="native">Yerel toplayıcı</option><option value="aida">AIDA64</option></select></label>
+          <label class="pc-select"><span>Kategori</span><select id="sensor-category" aria-label="Kategori"></select></label>
+        </div>
+        <p id="sensor-filter-status" class="pc-caption" aria-live="polite"></p>
+        <div id="pc-sensor-list"></div>
+      </section>
+      <section id="pc-inventory" class="panel detail-panel pc-panel" aria-labelledby="inventory-title" hidden>
+        <header class="section-head"><div><h2 id="inventory-title">Donanım envanteri</h2><p id="inventory-time"></p></div>
+          <label class="search"><svg><use href="/icons.svg#search"/></svg><input id="inventory-search" type="search" aria-label="Donanım ara" placeholder="Donanım ara"></label>
+        </header>
+        <div id="pc-disks" class="trend-grid"></div>
+        <div id="pc-components" class="hardware-grid"></div>
+      </section>
+    </div>
+    <section id="cihazlar" class="panel devices-panel" aria-labelledby="devices-heading">
+      <header class="section-head"><div><h2 id="devices-heading">Cihazlar</h2><p id="device-caption">Ağ ve enerji ölçüm kayıtları</p></div>
+        <label class="search"><svg><use href="/icons.svg#search"/></svg><input type="search" id="search" aria-label="Cihaz ara" placeholder="Cihaz ara"></label>
+      </header>
+      <div class="device-table">
+        <div class="table-head" aria-hidden="true"><span>Cihaz</span><span>Durum</span><span>Anlık güç</span><span>Tüketim</span><span>Maliyet</span></div>
+        <div id="devices"></div>
+      </div>
+    </section>
+    <footer class="page-footer"><span>kWhTracker</span><span>Türkiye saati (UTC+3)</span></footer>
+  </main>
+  <dialog id="tariff-dialog" aria-labelledby="tariff-title">
+    <form id="tariff-form">
+      <div class="dialog-head"><h2 id="tariff-title">Elektrik tarifesi</h2><button type="button" class="icon-button" data-close aria-label="Kapat"><svg><use href="/icons.svg#close"/></svg></button></div>
+      <p>Faturandaki kWh başına fiyatı gir. Maliyetler geçmiş dönemler için de bu fiyatla hesaplanır.</p>
+      <label for="tariff">Fiyat (₺/kWh)</label>
+      <input id="tariff" required inputmode="decimal" placeholder="Örn. 3,25" maxlength="16">
+      <p id="tariff-error" class="form-error" role="alert" hidden></p>
+      <button class="primary" type="submit">Kaydet</button>
+    </form>
+  </dialog>
+</body>
+</html>
