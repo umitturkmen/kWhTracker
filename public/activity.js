@@ -4,6 +4,7 @@ const $ = id => document.getElementById(id);
 const spans = { day: 'Bugün', week: 'Bu hafta', month: 'Bu ay', year: 'Bu yıl', all: 'Toplam' };
 const namespace = 'http://www.w3.org/2000/svg';
 let currentKey = '';
+let tick;
 
 function node(tag, text) {
   const element = document.createElement(tag);
@@ -23,6 +24,31 @@ function duration(ms) {
   if (ms > 0 && minutes === 0) return '< 1 ' + t('dk');
   const hours = Math.floor(minutes / 60);
   return (hours ? hours + ' ' + t('sa') + ' ' : '') + minutes % 60 + ' ' + t('dk');
+}
+
+function elapsedTime(ms) {
+  const total = Math.floor(Math.max(0, ms) / 1000);
+  const hours = Math.floor(total / 3600);
+  return (hours ? hours + ' ' + t('sa') + ' ' : '') +
+    Math.floor(total / 60) % 60 + ' ' + t('dk') + ' ' +
+    String(total % 60).padStart(2, '0') + ' ' + t('sn');
+}
+
+function startCounter(session, now) {
+  clearTimeout(tick);
+  const syncedAt = performance.now();
+  const time = dateFormat({ dateStyle: 'medium', timeStyle: 'short' });
+  function update() {
+    const current = now + performance.now() - syncedAt;
+    const online = session && current <= session.expires;
+    $('activity-live-label').textContent = t(session && !online ? 'Son oturum' : 'Şu anki oturum');
+    $('activity-live-state').textContent = session
+      ? online ? t('Başlangıç') + ' · ' + time.format(session.start) : t('Toplayıcı çevrimdışı')
+      : t('Toplayıcıdan ilk çalışma kaydı bekleniyor.');
+    $('activity-live-value').textContent = session ? elapsedTime((online ? current : session.last) - session.start) : '—';
+    if (online) tick = setTimeout(update, 1000);
+  }
+  update();
 }
 
 function chart(activity, period) {
@@ -57,6 +83,7 @@ function chart(activity, period) {
 
 export function renderActivity(activity, period, freshMs, now) {
   $('pc-activity').hidden = false;
+  startCounter(activity?.session, now);
   const online = Boolean(activity && now - activity.last <= freshMs);
   const key = JSON.stringify([language, activity, period, online]);
   if (key === currentKey) return;

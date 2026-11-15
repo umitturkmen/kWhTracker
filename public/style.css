@@ -181,6 +181,9 @@ h2{font-size:1.31rem;letter-spacing:-.035em;line-height:1.2}
 .pc-sections a:hover{background:var(--soft)}
 .pc-panel{margin-top:16px;scroll-margin-top:18px}
 .activity-panel{margin-bottom:16px;scroll-margin-top:18px}
+.activity-live{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin-top:14px;padding:11px 14px;border:1px solid var(--line);border-radius:9px;background:var(--reading)}
+.activity-live p{color:var(--muted);font-size:.82rem}
+.activity-live strong{display:block;font-size:clamp(1.45rem,4vw,2rem);line-height:1.16;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
 .activity-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:14px 0}
 .activity-summary div{display:block;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
 .activity-summary dt{font-size:.78rem}

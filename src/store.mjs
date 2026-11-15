@@ -117,6 +117,7 @@ export function openStore(path) {
     FROM pc_activity WHERE device_id=? AND started<=? AND ended>=?
     ORDER BY started DESC LIMIT 100
   `);
+  const activityGapMs = interval => (interval * 1.5 + 15) * 1000;
   const trendWindow = 24 * hourMs;
   const meter = db.prepare(`
     INSERT INTO meters VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -185,11 +186,12 @@ export function openStore(path) {
         const { id, activitySession } = batch.pc;
         const recent = lastActivity.get(id);
         if (!recent || batch.time > recent.ended) {
-          if (recent?.session === activitySession && batch.time - recent.ended <= (batch.interval * 1.5 + 15) * 1000) {
+          if (recent?.session === activitySession && batch.time - recent.ended <= activityGapMs(batch.interval)) {
             extendActivity.run(batch.time, id, recent.started);
           } else {
             addActivity.run(id, batch.time, batch.time, activitySession);
           }
+          set.run('pc_activity_interval:' + id, String(batch.interval));
         }
       }
       if (batch.pc?.native) saveNative.run(batch.pc.id, batch.time, JSON.stringify(batch.pc.native));
@@ -335,12 +337,15 @@ export function openStore(path) {
         .map(({ series, ...statistics }) => [series, statistics]));
       const activity = allActivity.get(deviceId);
       if (activity.since !== null && activity.since <= now) {
+        const session = lastActivity.get(deviceId);
+        const interval = Number(get.get('pc_activity_interval:' + deviceId)?.value ?? get.get('interval')?.value ?? 60);
         const calendar = ranges(now, activity.since);
         const selected = calendar[activityPeriod];
         const start = activityPeriod === 'all' ? activity.since : selected.start;
         const sum = (from, to) => to <= from ? 0 : activityTotal.get(to, from, deviceId, to, from).ms;
         requested.activity = {
           since: activity.since, last: activity.last, start, end: selected.end,
+          session: { start: session.started, last: session.ended, expires: session.ended + activityGapMs(interval) },
           summary: Object.fromEntries(['day', 'week', 'month', 'year', 'all'].map(key =>
             [key, sum(key === 'all' ? activity.since : calendar[key].start, now)])),
           buckets: selected.buckets.map(item => ({ ...item, ms: sum(item.time, Math.min(now, item.end)) })),
