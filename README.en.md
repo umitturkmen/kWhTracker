@@ -96,7 +96,7 @@ Check that the device and available readings appear. For continuous collection, 
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\deploy\install-windows-task.ps1
 ```
 
-The **Cihaz Takip PC** task starts when the current Windows user signs in and runs with ordinary user privileges. Stop any manually started collector with **Ctrl+C** before installing the task. Restart the task in Task Scheduler after changing the interval.
+The **Cihaz Takip PC** task starts when the current Windows user signs in and runs with ordinary user privileges. While that user is signed in, Windows checks every minute and starts the collector if the task has stopped. It runs one instance at a time. To pause collection, disable and stop the task in Task Scheduler. Stop any manually started collector with **Ctrl+C** before installing the task. Restart the task after changing the sampling interval.
 
 ## CPU and GPU data sources
 
@@ -231,7 +231,7 @@ Before the first report, enter hardware details that Windows may not detect. The
 
 - The dashboard and collector use separate credentials. Use HTTPS for remote access. Inventory and network records may contain private device names and identifiers. Keep `.env`, `agent.config.json` and `data/` out of shared copies.
 - During network outages the collector queues samples in a local SQLite file and sends them in order when the connection returns. The queue also holds the PC identifier and the first-inventory marker.
-- **Update.** Stop the collector and panel, update the code, and restart them. For Docker, rebuild using Compose with `up -d --build`. Check the latest reading afterward.
+- **Update.** Stop the collector and panel, then update the code. Disable a scheduled collector task before stopping it. For Docker, rebuild using Compose with `up -d --build`. Run the task installer again for a scheduled collector, or restart a manual collector as usual. Check the latest reading on the panel.
 - **Back up.** Use a SQLite-aware backup or stop the panel before copying the database files. Keep configuration and credentials in a restricted location.
 - **Uninstall.** Stop and delete **Cihaz Takip PC** in Task Scheduler. If installed, stop and delete **WattIz CPU Reader** from an Administrator session. Check whether other applications use PawnIO before removing the shared driver.
 - **The dashboard opens with no live data.** Run `npm run agent -- --once`. Check the root URL, system time, connection and `AGENT_TOKEN`. The demo only serves sample data.

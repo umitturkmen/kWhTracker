@@ -96,7 +96,7 @@ Cihazın ve mevcut sensörlerin panelde göründüğünü kontrol et. Sürekli k
 powershell.exe -NoProfile -ExecutionPolicy RemoteSigned -File .\deploy\install-windows-task.ps1
 ```
 
-**Cihaz Takip PC** görevi o Windows kullanıcısı oturum açtığında normal kullanıcı yetkisiyle çalışır. Görev kurmadan önce elle başlattığın toplayıcıyı **Ctrl+C** ile durdur. Aralığı değiştirince görevi Görev Zamanlayıcı'dan yeniden başlat.
+**Cihaz Takip PC** görevi o Windows kullanıcısı oturum açtığında normal kullanıcı yetkisiyle çalışır. Windows, oturum açıkken görevin durması hâlinde dakikada bir yeniden çalıştırmayı dener ve çalışan tek örneği korur. Geçici olarak duraklatmak için Görev Zamanlayıcı'da görevi devre dışı bırakıp durdur. Görev kurmadan önce elle başlattığın toplayıcıyı **Ctrl+C** ile durdur. Ölçüm aralığını değiştirince görevi yeniden başlat.
 
 ## CPU ve GPU ölçüm kaynakları
 
@@ -231,7 +231,7 @@ Bu mod için `pc` alanı olmayan ayrı bir toplayıcı yapılandırması kullan 
 
 - Panel ve toplayıcı farklı kimlik bilgileri kullanır. Uzak bağlantıda HTTPS kullan. Bilgisayarın verileri, cihaz adları ve yerel ağ tanımlayıcıları gibi özel bilgiler içerebilir. `.env`, `agent.config.json` ve `data/` dosyalarını paylaşma.
 - Devam eden ölçümler bağlantı kesilince yerel SQLite kuyruğunda kalır. Bağlantı geri geldiğinde toplayıcı paketleri sırayla gönderir. Kuyruk dosyası PC kimliğini ve ilk envanter kaydının durumunu da tutar.
-- **Güncelleme.** Paneli ve toplayıcıyı durdurup kodu güncelle. Docker kullanıyorsan Compose komutunu `up -d --build` ile yeniden çalıştır. Toplayıcıyı yeniden başlat ve son veri zamanını kontrol et.
+- **Güncelleme.** Paneli ve toplayıcıyı durdurup kodu güncelle. Zamanlanmış görevi durdurmadan önce devre dışı bırak. Docker kullanıyorsan Compose komutunu `up -d --build` ile yeniden çalıştır. Zamanlanmış toplayıcı için görev kurulum betiğini yeniden çalıştır. Elle çalıştırdığın toplayıcıyı yeniden başlat. Panelde son veri zamanını kontrol et.
 - **Yedekleme.** SQLite uyumlu yedek al veya paneli durdurduktan sonra veritabanı dosyalarını kopyala. Yapılandırma ve sırları ayrı, erişimi kısıtlı bir yerde sakla.
 - **Kaldırma.** Görev Zamanlayıcı'da **Cihaz Takip PC** görevini durdur ve sil. İsteğe bağlı CPU okuyucusunu kaldırmak için yönetici olarak **WattIz CPU Reader** görevini de durdurup sil. PawnIO başka uygulamalar tarafından kullanılabilir. Ortak sürücüyü kaldırmadan önce bunu kontrol et.
 - **Panel açılıyor, veri yok.** `npm run agent -- --once` çıktısına bak. `server`, saat, bağlantı ve `AGENT_TOKEN` değerini kontrol et. Demo modu gerçek paket almaz.

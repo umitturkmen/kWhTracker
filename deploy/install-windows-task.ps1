@@ -10,12 +10,15 @@ $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -Command "& ''' + $node +
     ''' --env-file=.env src/agent.mjs; exit $LASTEXITCODE"'
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments -WorkingDirectory $project
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $account
+$onLogon = New-ScheduledTaskTrigger -AtLogOn -User $account
+# Restore the collector after exits that Task Scheduler does not automatically retry.
+$recovery = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
+$recovery.Repetition.StopAtDurationEnd = $false
 $principal = New-ScheduledTaskPrincipal -UserId $account -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable `
     -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $name = 'Cihaz Takip PC'
-Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+Register-ScheduledTask -TaskName $name -Action $action -Trigger @($onLogon, $recovery) -Principal $principal -Settings $settings -Force | Out-Null
 Start-ScheduledTask -TaskName $name
 Get-ScheduledTask -TaskName $name | Select-Object TaskName, State
