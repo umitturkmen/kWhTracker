@@ -47,7 +47,9 @@ function pcDetails(pc, time) {
   }
   const activitySession = typeof pc.activitySession === 'string' && pcIdPattern.test(pc.activitySession)
     ? pc.activitySession : null;
-  return { id: pc.id, activitySession, sensors, native, inventory };
+  const bootAt = Number.isSafeInteger(pc.bootAt) && pc.bootAt >= Date.UTC(2000, 0, 1) && pc.bootAt <= time
+    ? pc.bootAt : null;
+  return { id: pc.id, activitySession, bootAt, sensors, native, inventory };
 }
 
 export function report(input) {

@@ -34,14 +34,16 @@ function elapsedTime(ms) {
     String(total % 60).padStart(2, '0') + ' ' + t('sn');
 }
 
-function startCounter(session, now) {
+function startCounter(session, hasBoot, now) {
   clearTimeout(tick);
   const syncedAt = performance.now();
   const time = dateFormat({ dateStyle: 'medium', timeStyle: 'short' });
   function update() {
     const current = now + performance.now() - syncedAt;
     const online = session && current <= session.expires;
-    $('activity-live-label').textContent = t(session && !online ? 'Son oturum' : 'Şu anki oturum');
+    $('activity-live-label').textContent = t(hasBoot
+      ? (online ? 'Windows açılışından beri' : 'Son bildirilen Windows süresi')
+      : (session && !online ? 'Son takip oturumu' : 'Takip oturumu'));
     $('activity-live-state').textContent = session
       ? online ? t('Başlangıç') + ' · ' + time.format(session.start) : t('Toplayıcı çevrimdışı')
       : t('Toplayıcıdan ilk çalışma kaydı bekleniyor.');
@@ -60,15 +62,17 @@ function chart(activity, period) {
   const width = plotWidth / activity.buckets.length;
   const peak = Math.max(...activity.buckets.map(bucket => bucket.ms), 60_000);
   const labelEvery = Math.max(1, Math.ceil(activity.buckets.length / 8));
+  const clock = dateFormat({ hour: '2-digit', minute: '2-digit' });
   for (const [index, bucket] of activity.buckets.entries()) {
     const left = inset + index * width;
     const caption = bucketLabel(bucket, period);
     if (bucket.ms > 0) {
+      const interval = period === 'day' ? caption + '–' + clock.format(bucket.end) : caption;
       const height = Math.max(2, 57 * bucket.ms / peak);
       const bar = svg('rect', { x: left + width * .14, y: 66 - height, width: width * .72,
-        height, rx: 3, tabindex: 0, role: 'img', 'aria-label': caption + ', ' + duration(bucket.ms) });
+        height, rx: 3, tabindex: 0, role: 'img', 'aria-label': interval + ', ' + duration(bucket.ms) });
       const tip = svg('title', {});
-      tip.textContent = caption + ' · ' + duration(bucket.ms);
+      tip.textContent = interval + ' · ' + duration(bucket.ms);
       bar.append(tip);
       graph.append(bar);
     }
@@ -81,10 +85,11 @@ function chart(activity, period) {
   return graph;
 }
 
-export function renderActivity(activity, period, freshMs, now) {
+export function renderActivity(activity, period, now) {
   $('pc-activity').hidden = false;
-  startCounter(activity?.session, now);
-  const online = Boolean(activity && now - activity.last <= freshMs);
+  const session = activity?.boot ?? activity?.session;
+  startCounter(session, Boolean(activity?.boot), now);
+  const online = Boolean(session && now <= session.expires);
   const key = JSON.stringify([language, activity, period, online]);
   if (key === currentKey) return;
   currentKey = key;

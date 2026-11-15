@@ -4,6 +4,27 @@ import { DatabaseSync } from 'node:sqlite';
 import { hourMs, ranges } from './calendar.mjs';
 import { trendCharts, trendSensors, trendValue, numericSensor } from './sensor-types.mjs';
 
+const activityJoinMs = 4 * 60_000;
+const activityGapMs = interval => (interval * 1.5 + 15) * 1000;
+
+function crossedBoot(previous, bootAt) {
+  return bootAt !== null && (previous.bootAt === null ? bootAt > previous.end : bootAt !== previous.bootAt);
+}
+
+function groupActivity(rows) {
+  const sessions = [];
+  for (const row of rows) {
+    const previous = sessions.at(-1);
+    if (previous && row.start - previous.end <= activityJoinMs && !crossedBoot(previous, row.bootAt)) {
+      previous.end = row.end;
+      previous.bootAt ??= row.bootAt;
+    } else {
+      sessions.push(row);
+    }
+  }
+  return sessions;
+}
+
 export function openStore(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path, { timeout: 5000 });
@@ -49,10 +70,17 @@ export function openStore(path) {
     ) STRICT;
     CREATE TABLE IF NOT EXISTS pc_activity (
       device_id TEXT NOT NULL REFERENCES devices(id), started INTEGER NOT NULL,
-      ended INTEGER NOT NULL, session TEXT NOT NULL, PRIMARY KEY(device_id, started)
+      ended INTEGER NOT NULL, session TEXT NOT NULL, boot_at INTEGER, PRIMARY KEY(device_id, started)
+    ) STRICT;
+    CREATE TABLE IF NOT EXISTS pc_boot (
+      device_id TEXT PRIMARY KEY REFERENCES devices(id),
+      started INTEGER NOT NULL, seen INTEGER NOT NULL, expires INTEGER NOT NULL
     ) STRICT;
     CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT;
   `);
+  if (!db.prepare('PRAGMA table_info(pc_activity)').all().some(column => column.name === 'boot_at')) {
+    db.exec('ALTER TABLE pc_activity ADD COLUMN boot_at INTEGER');
+  }
   const get = db.prepare('SELECT value FROM state WHERE key = ?');
   const set = db.prepare('INSERT INTO state VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
   const device = db.prepare(`
@@ -104,20 +132,22 @@ export function openStore(path) {
     WHERE excluded.time>pc_native_sensors.time
   `);
   const selectNative = db.prepare('SELECT time, payload FROM pc_native_sensors WHERE device_id=?');
-  const lastActivity = db.prepare('SELECT started, ended, session FROM pc_activity WHERE device_id=? ORDER BY started DESC LIMIT 1');
-  const addActivity = db.prepare('INSERT INTO pc_activity VALUES (?, ?, ?, ?)');
-  const extendActivity = db.prepare('UPDATE pc_activity SET ended=? WHERE device_id=? AND started=?');
-  const allActivity = db.prepare('SELECT MIN(started) AS since, MAX(ended) AS last FROM pc_activity WHERE device_id=?');
-  const activityTotal = db.prepare(`
-    SELECT COALESCE(SUM(MIN(ended, ?) - MAX(started, ?)), 0) AS ms
-    FROM pc_activity WHERE device_id=? AND started<? AND ended>?
+  const lastActivity = db.prepare(`
+    SELECT started AS start, ended AS end, session, boot_at AS bootAt
+    FROM pc_activity WHERE device_id=? ORDER BY started DESC LIMIT 1
   `);
-  const recentActivity = db.prepare(`
-    SELECT MAX(started, ?) AS start, MIN(ended, ?) AS end
-    FROM pc_activity WHERE device_id=? AND started<=? AND ended>=?
-    ORDER BY started DESC LIMIT 100
+  const addActivity = db.prepare('INSERT INTO pc_activity (device_id, started, ended, session, boot_at) VALUES (?, ?, ?, ?, ?)');
+  const extendActivity = db.prepare('UPDATE pc_activity SET ended=?, boot_at=COALESCE(boot_at, ?) WHERE device_id=? AND started=?');
+  const selectActivity = db.prepare(`
+    SELECT started AS start, MIN(ended, ?) AS end, boot_at AS bootAt
+    FROM pc_activity WHERE device_id=? AND started<=? ORDER BY started
   `);
-  const activityGapMs = interval => (interval * 1.5 + 15) * 1000;
+  const saveBoot = db.prepare(`
+    INSERT INTO pc_boot VALUES (?, ?, ?, ?)
+    ON CONFLICT(device_id) DO UPDATE SET started=excluded.started, seen=excluded.seen, expires=excluded.expires
+    WHERE excluded.seen>pc_boot.seen
+  `);
+  const selectBoot = db.prepare('SELECT started AS start, seen AS last, expires FROM pc_boot WHERE device_id=? AND seen<=?');
   const trendWindow = 24 * hourMs;
   const meter = db.prepare(`
     INSERT INTO meters VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -182,14 +212,17 @@ export function openStore(path) {
         disconnected.run(source, batch.time);
         set.run('source:' + source, String(batch.time));
       }
+      if (batch.pc?.bootAt != null) {
+        saveBoot.run(batch.pc.id, batch.pc.bootAt, batch.time, batch.time + activityGapMs(batch.interval));
+      }
       if (batch.pc?.activitySession) {
-        const { id, activitySession } = batch.pc;
+        const { id, activitySession, bootAt } = batch.pc;
         const recent = lastActivity.get(id);
-        if (!recent || batch.time > recent.ended) {
-          if (recent?.session === activitySession && batch.time - recent.ended <= activityGapMs(batch.interval)) {
-            extendActivity.run(batch.time, id, recent.started);
+        if (!recent || batch.time > recent.end) {
+          if (recent?.session === activitySession && batch.time - recent.end <= activityGapMs(batch.interval) && !crossedBoot(recent, bootAt)) {
+            extendActivity.run(batch.time, bootAt, id, recent.start);
           } else {
-            addActivity.run(id, batch.time, batch.time, activitySession);
+            addActivity.run(id, batch.time, batch.time, activitySession, bootAt);
           }
           set.run('pc_activity_interval:' + id, String(batch.interval));
         }
@@ -335,21 +368,26 @@ export function openStore(path) {
         .map(({ time, payload }) => ({ time, values: JSON.parse(payload) }));
       requested.trendStatistics = Object.fromEntries(selectTrendStatistics.all(deviceId)
         .map(({ series, ...statistics }) => [series, statistics]));
-      const activity = allActivity.get(deviceId);
-      if (activity.since !== null && activity.since <= now) {
-        const session = lastActivity.get(deviceId);
+      const sessions = groupActivity(selectActivity.all(now, deviceId, now));
+      if (sessions.length) {
+        const since = sessions[0].start;
+        const session = sessions.at(-1);
         const interval = Number(get.get('pc_activity_interval:' + deviceId)?.value ?? get.get('interval')?.value ?? 60);
-        const calendar = ranges(now, activity.since);
+        const calendar = ranges(now, since);
         const selected = calendar[activityPeriod];
-        const start = activityPeriod === 'all' ? activity.since : selected.start;
-        const sum = (from, to) => to <= from ? 0 : activityTotal.get(to, from, deviceId, to, from).ms;
+        const start = activityPeriod === 'all' ? since : selected.start;
+        const sum = (from, to) => sessions.reduce((total, row) =>
+          total + Math.max(0, Math.min(row.end, to) - Math.max(row.start, from)), 0);
+        const boot = selectBoot.get(deviceId, now);
         requested.activity = {
-          since: activity.since, last: activity.last, start, end: selected.end,
-          session: { start: session.started, last: session.ended, expires: session.ended + activityGapMs(interval) },
+          since, last: session.end, start, end: selected.end,
+          session: { start: session.start, last: session.end, expires: session.end + activityGapMs(interval) },
+          boot: boot ? { ...boot } : null,
           summary: Object.fromEntries(['day', 'week', 'month', 'year', 'all'].map(key =>
-            [key, sum(key === 'all' ? activity.since : calendar[key].start, now)])),
+            [key, sum(key === 'all' ? since : calendar[key].start, now)])),
           buckets: selected.buckets.map(item => ({ ...item, ms: sum(item.time, Math.min(now, item.end)) })),
-          sessions: recentActivity.all(start, now, deviceId, now, start)
+          sessions: sessions.filter(row => row.end > Math.max(row.start, start)).slice(-100).reverse()
+            .map(row => ({ start: Math.max(row.start, start), end: row.end }))
         };
       }
     }

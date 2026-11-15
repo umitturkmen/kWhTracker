@@ -184,7 +184,8 @@ h2{font-size:1.31rem;letter-spacing:-.035em;line-height:1.2}
 .activity-live{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin-top:14px;padding:11px 14px;border:1px solid var(--line);border-radius:9px;background:var(--reading)}
 .activity-live p{color:var(--muted);font-size:.82rem}
 .activity-live strong{display:block;font-size:clamp(1.45rem,4vw,2rem);line-height:1.16;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
-.activity-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:14px 0}
+.activity-summary-title{font-size:.94rem;margin:14px 0 7px}
+.activity-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 14px}
 .activity-summary div{display:block;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}
 .activity-summary dt{font-size:.78rem}
 .activity-summary dd{font-weight:700;font-variant-numeric:tabular-nums}
@@ -194,6 +195,7 @@ h2{font-size:1.31rem;letter-spacing:-.035em;line-height:1.2}
 #activity-graph text{fill:var(--muted);font-size:13px}
 .activity-rule{stroke:var(--line)}
 .activity-ranges h3{font-size:.94rem;margin:7px 0}
+.activity-note{font-size:.82rem;color:var(--muted);margin:0 0 8px}
 .activity-ranges ul{list-style:none;padding:0;margin:0;max-height:14rem;overflow:auto;color:var(--muted)}
 .activity-ranges li{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding:7px 0;font-size:.82rem}
 .activity-ranges strong{color:var(--ink);white-space:nowrap}

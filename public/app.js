@@ -104,7 +104,7 @@ function renderDetails(device) {
   }));
   if (pc) {
     renderPc(device, data.now, data.freshMs);
-    renderActivity(device.activity, data.activityPeriod, data.freshMs, data.now);
+    renderActivity(device.activity, data.activityPeriod, data.now);
   }
 }
 

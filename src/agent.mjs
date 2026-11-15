@@ -52,6 +52,7 @@ queue.prepare("INSERT OR IGNORE INTO agent_state VALUES ('id', ?)").run(randomUU
 const pcId = queue.prepare("SELECT value FROM agent_state WHERE key='id'").get().value;
 const pcSession = randomUUID();
 let activitySession = randomUUID();
+let windowsBootAt = null;
 const readPc = pc && createPcReader(pc, pcId);
 const enqueue = queue.prepare('INSERT OR IGNORE INTO queue VALUES (?, ?)');
 const pending = queue.prepare('SELECT time, payload FROM queue ORDER BY time LIMIT 250');
@@ -60,6 +61,17 @@ const lastQueued = queue.prepare('SELECT MAX(time) AS time FROM queue');
 const inventoryQueued = queue.prepare("SELECT 1 FROM agent_state WHERE key='inventory_v1'");
 const markInventory = queue.prepare("INSERT OR IGNORE INTO agent_state VALUES ('inventory_v1', 'queued')");
 let lastReport = lastQueued.get().time ?? 0;
+
+async function readWindowsBoot() {
+  if (windowsBootAt !== null) return windowsBootAt;
+  const { stdout } = await exec('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+    '$ErrorActionPreference = "Stop"; ' +
+    '([DateTimeOffset](Get-CimInstance Win32_OperatingSystem).LastBootUpTime).ToUnixTimeMilliseconds()'
+  ], { windowsHide: true, timeout: 5000 }).catch(() => ({ stdout: '' }));
+  const time = Number(stdout.trim());
+  if (Number.isSafeInteger(time) && time >= Date.UTC(2000, 0, 1) && time <= Date.now()) windowsBootAt = time;
+  return windowsBootAt;
+}
 
 async function readInventory() {
   const script = fileURLToPath(new URL('./inventory.ps1', import.meta.url));
@@ -202,7 +214,8 @@ async function cycle(requestId) {
   }
   batch.meters = [...unique.values()];
   if (readPc) {
-    batch.pc = { id: pcId, name: pc.name, session: pcSession, activitySession, ...await readPc() };
+    const [readings, bootAt] = await Promise.all([readPc(), readWindowsBoot()]);
+    batch.pc = { id: pcId, name: pc.name, session: pcSession, activitySession, bootAt, ...readings };
     if (!batch.pc.readings.length) batch.issues.push('PC güç sensörü okunamadı. AIDA64 sensör paylaşımını kontrol et.');
     if (!inventoryQueued.get()) {
       try {
