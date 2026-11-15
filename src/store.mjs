@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { hourMs, ranges } from './calendar.mjs';
-import { trendSensors, numericSensor } from './sensor-types.mjs';
+import { trendCharts, trendSensors, trendValue, numericSensor } from './sensor-types.mjs';
 
 export function openStore(path) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
@@ -38,6 +38,11 @@ export function openStore(path) {
     CREATE TABLE IF NOT EXISTS pc_sensor_trends (
       device_id TEXT NOT NULL REFERENCES devices(id), time INTEGER NOT NULL, payload TEXT NOT NULL,
       PRIMARY KEY(device_id, time)
+    ) STRICT;
+    CREATE TABLE IF NOT EXISTS pc_sensor_statistics (
+      device_id TEXT NOT NULL REFERENCES devices(id), series TEXT NOT NULL,
+      minimum REAL NOT NULL, maximum REAL NOT NULL, total REAL NOT NULL, samples INTEGER NOT NULL,
+      since INTEGER NOT NULL, PRIMARY KEY(device_id, series)
     ) STRICT;
     CREATE TABLE IF NOT EXISTS pc_native_sensors (
       device_id TEXT PRIMARY KEY REFERENCES devices(id), time INTEGER NOT NULL, payload TEXT NOT NULL
@@ -82,6 +87,17 @@ export function openStore(path) {
   const saveTrend = db.prepare('INSERT OR IGNORE INTO pc_sensor_trends VALUES (?, ?, ?)');
   const pruneTrends = db.prepare('DELETE FROM pc_sensor_trends WHERE device_id=? AND time<?');
   const selectTrends = db.prepare('SELECT time, payload FROM pc_sensor_trends WHERE device_id=? AND time>=? AND time<=? ORDER BY time');
+  const latestTrend = db.prepare('SELECT MAX(time) AS time FROM pc_sensor_trends WHERE device_id=?');
+  const addTrendStatistics = db.prepare(`
+    INSERT INTO pc_sensor_statistics VALUES (?, ?, ?, ?, ?, 1, ?)
+    ON CONFLICT(device_id, series) DO UPDATE SET
+      minimum=MIN(minimum, excluded.minimum), maximum=MAX(maximum, excluded.maximum),
+      total=total+excluded.total, samples=samples+1, since=MIN(since, excluded.since)
+  `);
+  const selectTrendStatistics = db.prepare(`
+    SELECT series, minimum, maximum, total / samples AS average, samples, since
+    FROM pc_sensor_statistics WHERE device_id=?
+  `);
   const saveNative = db.prepare(`
     INSERT INTO pc_native_sensors VALUES (?, ?, ?)
     ON CONFLICT(device_id) DO UPDATE SET time=excluded.time, payload=excluded.payload
@@ -133,6 +149,23 @@ export function openStore(path) {
     }
   }
 
+  function recordTrendStatistics(id, time, values) {
+    for (const chart of trendCharts) {
+      for (const [name, ids] of chart.series) {
+        const value = trendValue(values, ids);
+        if (value !== undefined) addTrendStatistics.run(id, chart.id + ':' + name, value, value, value, time);
+      }
+    }
+  }
+
+  transaction(() => {
+    if (get.get('pc_sensor_statistics_v1')) return;
+    for (const row of db.prepare('SELECT device_id, time, payload FROM pc_sensor_trends').iterate()) {
+      recordTrendStatistics(row.device_id, row.time, JSON.parse(row.payload));
+    }
+    set.run('pc_sensor_statistics_v1', '1');
+  });
+
   function ingest(batch) {
     transaction(() => {
       const sources = new Map(batch.complete.map(source => [
@@ -171,8 +204,12 @@ export function openStore(path) {
           const number = numericSensor(value);
           if (number !== null) values[id] = number;
         }
-        saveTrend.run(batch.pc.id, batch.time, JSON.stringify(values));
-        pruneTrends.run(batch.pc.id, batch.time - trendWindow);
+        const newest = latestTrend.get(batch.pc.id).time ?? batch.time;
+        const cutoff = Math.max(batch.time, newest) - trendWindow;
+        if (batch.time >= cutoff && saveTrend.run(batch.pc.id, batch.time, JSON.stringify(values)).changes) {
+          recordTrendStatistics(batch.pc.id, batch.time, values);
+          pruneTrends.run(batch.pc.id, cutoff);
+        }
       }
       if (batch.pc?.inventory) {
         const { time, components } = batch.pc.inventory;
@@ -294,6 +331,8 @@ export function openStore(path) {
       requested.native = native ? { time: native.time, live: now - native.time <= freshMs, sensors: JSON.parse(native.payload) } : null;
       if (sensor || native) requested.trends = selectTrends.all(deviceId, now - trendWindow, now)
         .map(({ time, payload }) => ({ time, values: JSON.parse(payload) }));
+      requested.trendStatistics = Object.fromEntries(selectTrendStatistics.all(deviceId)
+        .map(({ series, ...statistics }) => [series, statistics]));
       const activity = allActivity.get(deviceId);
       if (activity.since !== null && activity.since <= now) {
         const calendar = ranges(now, activity.since);

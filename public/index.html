@@ -88,7 +88,14 @@
         <div id="sensor-rows"></div>
       </section>
       <section id="pc-telemetry" class="panel detail-panel pc-panel" aria-labelledby="telemetry-title" hidden>
-        <header class="section-head"><div><h2 id="telemetry-title">Donanım sensörleri</h2><p id="telemetry-time"></p></div></header>
+        <header class="section-head telemetry-head">
+          <div><h2 id="telemetry-title">Donanım sensörleri</h2><p id="telemetry-time"></p></div>
+          <div id="trend-range" class="segments" role="group" aria-label="Grafik aralığı">
+            <button type="button" data-hours="1" aria-pressed="false">1 saat</button>
+            <button type="button" data-hours="6" aria-pressed="true">6 saat</button>
+            <button type="button" data-hours="12" aria-pressed="false">12 saat</button>
+          </div>
+        </header>
         <div id="pc-trends" class="trend-grid"></div>
         <div class="pc-toolbar">
           <label class="search"><svg><use href="/icons.svg#search"/></svg><input id="sensor-search" type="search" aria-label="Sensör ara" placeholder="Sensör veya kod ara"></label>

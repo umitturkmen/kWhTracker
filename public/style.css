@@ -199,6 +199,10 @@ h2{font-size:1.31rem;letter-spacing:-.035em;line-height:1.2}
 .trend-grid:empty,.hardware-grid:empty{display:none}
 .trend-card,.disk-card,.hardware-card{border:1px solid var(--line);border-radius:10px;padding:13px;min-width:0}
 .trend-card{background:var(--surface)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+.telemetry-head{flex-wrap:wrap}
+#trend-range button{min-height:44px;white-space:nowrap}
+#pc-trends{grid-template-columns:repeat(auto-fit,minmax(min(100%,245px),1fr));align-items:start}
 .pc-panel h3{margin:0 0 9px;font-size:1rem;line-height:1.2}
 .trend-legend{display:flex;gap:7px 11px;flex-wrap:wrap;min-height:39px}
 .trend-tag{display:inline-flex;gap:5px;align-items:center;font-size:.75rem;color:var(--muted)}
@@ -210,6 +214,23 @@ h2{font-size:1.31rem;letter-spacing:-.035em;line-height:1.2}
 .trend-card svg{width:100%;height:auto;display:block}
 .trend-gridline{stroke:var(--line);stroke-dasharray:3 4}
 .trend-line{fill:none;stroke:var(--track);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.trend-line.trend-1{stroke-dasharray:6 3}
+.trend-line.trend-2{stroke-dasharray:2 3}
+.trend-inspect{border-radius:5px;cursor:crosshair;touch-action:pan-y}
+.trend-crosshair{stroke:var(--muted);stroke-dasharray:3 3}
+.trend-marker{fill:var(--track);stroke:var(--white);stroke-width:1.4}
+.trend-readout{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 8px;margin:8px 0;border-top:1px solid var(--line);padding:7px 0 2px;font-size:.78rem;font-variant-numeric:tabular-nums}
+.trend-readout time{color:var(--muted)}
+.trend-readout .trend-legend{width:100%;min-height:0}
+.trend-readout .trend-tag strong{white-space:nowrap}
+.trend-card>.trend-legend{min-height:0;margin-bottom:2px}
+.trend-statistics{width:100%;border-collapse:collapse;font-size:.72rem;font-variant-numeric:tabular-nums}
+.trend-statistics th,.trend-statistics td{padding:4px 2px;border-top:1px solid var(--line);text-align:right}
+.trend-statistics th:first-child,.trend-statistics td:first-child{text-align:left}
+.trend-statistics thead{color:var(--muted)}
+.trend-statistics td{white-space:nowrap}
+.trend-history{margin-top:8px}
+.trend-history summary{cursor:pointer;min-height:36px;padding-block:7px;color:var(--green);font-size:.8rem}
 .trend-times{display:flex;justify-content:space-between;gap:7px;font-size:.78rem;color:var(--muted)}
 .trend-empty,.pc-caption,.disk-card small{color:var(--muted);font-size:.82rem}
 .trend-empty{min-height:50px;display:grid;place-items:center}

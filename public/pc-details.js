@@ -1,10 +1,8 @@
 import { dateFormat, language, locale, t } from './i18n.js';
+import { renderSensorCharts } from './sensor-chart.js';
 
 const $ = id => document.getElementById(id);
-const format = value => new Intl.NumberFormat(locale(), { maximumFractionDigits: 1 }).format(value);
-const clock = value => dateFormat({ hour: '2-digit', minute: '2-digit' }).format(value);
 const date = value => dateFormat({ dateStyle: 'medium', timeStyle: 'short' }).format(value);
-const svgNs = 'http://www.w3.org/2000/svg';
 const searchable = value => value.toLocaleLowerCase('tr').normalize('NFD').replace(/\p{M}/gu, '').replaceAll('ı', 'i');
 let state;
 let sourceKey = '';
@@ -76,66 +74,6 @@ function sensorList() {
     section.append(list);
     return [section];
   }));
-}
-
-function lineChart(title, suffix, definitions, samples, now, freshMs) {
-  const card = el('article', 'trend-card');
-  card.append(el('h3', '', t(title)));
-  const legend = el('div', 'trend-legend');
-  const tracks = definitions.map(([name, ids], index) => {
-    const points = samples.map(sample => ({
-      time: sample.time,
-      value: ids.map(id => sample.values[id]).find(Number.isFinite)
-    }));
-    const values = points.map(point => point.value).filter(Number.isFinite);
-    const last = points.at(-1)?.value;
-    const tag = el('span', 'trend-tag trend-' + index, name);
-    tag.append(el('strong', '', Number.isFinite(last) ? format(last) + ' ' + suffix : '—'));
-    legend.append(tag);
-    return { points, values };
-  });
-  card.append(legend);
-  const values = tracks.flatMap(track => track.values);
-  if (!values.length) {
-    card.append(el('p', 'trend-empty', t('Ölçüm bekleniyor')));
-    return card;
-  }
-  const start = Math.max(now - 86_400_000, samples[0].time);
-  const end = Math.max(start + 1000, samples.at(-1).time, now - 60_000);
-  const top = suffix === '%' ? 100 : Math.max(...values, 10) * 1.13;
-  const bottom = Math.min(0, ...values);
-  const x = time => 6 + 248 * (time - start) / (end - start);
-  const y = value => 76 - (value - bottom) * 65 / (top - bottom);
-  const graph = document.createElementNS(svgNs, 'svg');
-  graph.setAttribute('viewBox', '0 0 260 84');
-  graph.setAttribute('role', 'img');
-  graph.setAttribute('aria-label', t(title) + ' ' + t('grafiği'));
-  for (const position of [12, 44, 76]) {
-    const rule = document.createElementNS(svgNs, 'path');
-    rule.setAttribute('d', 'M6 ' + position + 'H254');
-    rule.setAttribute('class', 'trend-gridline');
-    graph.append(rule);
-  }
-  for (const [index, track] of tracks.entries()) {
-    let previous = null;
-    let path = '';
-    for (const point of track.points) {
-      if (!Number.isFinite(point.value)) { previous = null; continue; }
-      const connects = previous !== null && point.time - previous <= freshMs;
-      const coord = x(point.time).toFixed(1) + ' ' + y(point.value).toFixed(1);
-      path += (connects ? 'L' : 'M') + coord;
-      if (!connects) path += 'h.5';
-      previous = point.time;
-    }
-    const line = document.createElementNS(svgNs, 'path');
-    line.setAttribute('d', path);
-    line.setAttribute('class', 'trend-line trend-' + index);
-    graph.append(line);
-  }
-  const times = el('div', 'trend-times');
-  times.append(el('span', '', clock(start)), el('span', '', clock(end)));
-  card.append(graph, times);
-  return card;
 }
 
 function renderInventory() {
@@ -217,18 +155,14 @@ export function renderPc(device, now, freshMs) {
   $('pc-sections').hidden = false;
   $('pc-telemetry').hidden = false;
   $('pc-inventory').hidden = false;
-  const { aida, native, inventory, trends = [] } = device;
+  const { aida, native, inventory, trends = [], trendStatistics } = device;
   if (!sourceChosen) $('sensor-source').value = aida?.live || !native?.sensors.length ? 'aida' : 'native';
   const source = $('sensor-source').value;
   renderSource();
-  const newSourceKey = JSON.stringify([language, source, aida, native, trends.at(-1)?.time, trends[0]?.time]);
+  renderSensorCharts(trends, trendStatistics, now, freshMs);
+  const newSourceKey = JSON.stringify([language, source, aida, native]);
   if (newSourceKey !== sourceKey) {
     sourceKey = newSourceKey;
-    $('pc-trends').replaceChildren(
-      lineChart('Sıcaklık', '°C', [['CPU', ['TCPUPKG', 'TCPU']], ['GPU', ['TGPU1']]], trends, now, freshMs),
-      lineChart('Kullanım', '%', [['CPU', ['SCPUUTI']], ['GPU', ['SGPU1UTI']], ['RAM', ['SMEMUTI']]], trends, now, freshMs),
-      lineChart('Bileşen gücü', 'W', [['CPU', ['PCPUPKG', 'PCPU']], ['GPU', ['PGPU1']]], trends, now, freshMs)
-    );
     sensorList();
   }
   const newInventoryKey = JSON.stringify([language, inventory]);

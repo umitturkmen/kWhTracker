@@ -35,6 +35,7 @@ const assets = new Map([
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/pc-details.js', ['pc-details.js', 'text/javascript; charset=utf-8']],
+  ['/sensor-chart.js', ['sensor-chart.js', 'text/javascript; charset=utf-8']],
   ['/activity.js', ['activity.js', 'text/javascript; charset=utf-8']],
   ['/preferences.js', ['preferences.js', 'text/javascript; charset=utf-8']],
   ['/i18n.js', ['i18n.js', 'text/javascript; charset=utf-8']],
@@ -43,6 +44,7 @@ const assets = new Map([
   ['/instrument.woff2', ['instrument.woff2', 'font/woff2']],
   ['/instrument-ext.woff2', ['instrument-ext.woff2', 'font/woff2']]
 ].map(([path, [file, type]]) => [path, [type, readFileSync(new URL('../public/' + file, import.meta.url))]]));
+assets.set('/sensor-types.mjs', ['text/javascript; charset=utf-8', readFileSync(new URL('./sensor-types.mjs', import.meta.url))]);
 
 function same(value, expected) {
   const digest = input => createHash('sha256').update(input).digest();

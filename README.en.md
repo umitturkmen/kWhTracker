@@ -128,11 +128,11 @@ In AIDA64, open **Preferences → Hardware Monitoring → External Applications*
 
 1. Open **Overview** to see current watts and the selected period's energy and cost.
 2. In **Tariff**, enter the ₺/kWh price from your bill. The same price also applies to past periods. For example, an average of 150 W over four hours is 0.60 kWh. At ₺3.50/kWh, the estimated cost is ₺2.10.
-3. Select your PC under **Devices** to see energy, uptime, session intervals, sensor charts and hardware inventory. Energy and uptime have separate period selectors. Use **Download CSV** to export the displayed energy period.
+3. Select your PC under **Devices** to see energy, uptime, session intervals, sensor charts and hardware inventory. Energy and uptime have separate period selectors. Use **Download CSV** to export the displayed energy period. Under **Hardware sensors**, choose the last 1, 6 or 12 hours. Hover, tap or focus a chart and use the arrow keys to inspect a reading and its timestamp.
 4. Press **Read now** to request a new measurement. An online collector checks for requests about every four seconds under normal conditions.
 5. Choose **Türkçe / English** and **System / Light / Dark** in the sidebar. Your browser remembers the choices across dashboard pages.
 
-**Reading the numbers.** PC energy is calculated from consecutive power samples. Sleep, long gaps and sensor-source changes can leave gaps in the estimate. Uptime comes from consecutive collector records and begins with the first recorded sample. Session boundaries are approximate at the sample cadence. Charts use Türkiye time. Sensor trends cover the last 24 hours. Inventory is captured once and stays visible while the PC is offline. Drive occupancy comes from the inventory snapshot.
+**Reading the numbers.** PC energy is calculated from consecutive power samples. Sleep, long gaps and sensor-source changes can leave gaps in the estimate. Uptime comes from consecutive collector records and begins with the first recorded sample. Session boundaries are approximate at the sample cadence. Charts use Türkiye time. Raw trend samples are retained for 24 hours. Each chart shows the minimum, maximum and arithmetic mean for the selected range. **Cumulative statistics** remain in SQLite after older raw samples expire. Existing installations seed these totals from samples still available at upgrade time. Inventory is captured once and stays visible while the PC is offline. Drive occupancy comes from the inventory snapshot.
 
 ## Deploy to a remote server
 

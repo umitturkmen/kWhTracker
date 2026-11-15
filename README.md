@@ -128,11 +128,11 @@ AIDA64'te **Tercihler → Donanım İzleme → Harici Uygulamalar** bölümünde
 
 1. **Genel bakış** sayfasında anlık W değerini, seçili dönemin kWh toplamını ve maliyetini gör.
 2. **Tarife** bölümüne faturana göre ₺/kWh fiyatı gir. Aynı fiyat geçmiş dönemlere de uygulanır ve sonuç tahminidir. Örneğin 150 W ortalama güç, 4 saatte 0,60 kWh eder. Birim fiyat ₺3,50 ise maliyet ₺2,10 olur.
-3. **Cihazlar** listesinden PC'yi aç. Enerji ve açık kalma süresi için ayrı dönem seçicileri bulunur. PC sayfası kayıtlı oturumların saat aralıklarını, sensör grafiklerini, donanım envanterini ve enerji CSV dosyasını gösterir.
+3. **Cihazlar** listesinden PC'yi aç. Enerji ve açık kalma süresi için ayrı dönem seçicileri bulunur. PC sayfası kayıtlı oturumların saat aralıklarını, sensör grafiklerini, donanım envanterini ve enerji CSV dosyasını gösterir. **Donanım sensörleri** bölümünde son 1, 6 veya 12 saati seçebilirsin. Grafiğin üzerine gelerek, dokunarak veya odaklanıp ok tuşlarını kullanarak örneğin saatini ve değerini incele.
 4. **Şimdi ölç** yeni bir ölçüm ister. Toplayıcı bağlıysa isteği bir sonraki yoklamasında alır. Yoklama normal koşullarda yaklaşık dört saniyede bir yapılır.
 5. Yan menüden **Türkçe / English** ve **Sistem / Açık / Koyu** seçeneklerini seç. Tercihler tarayıcıda saklanır ve cihaz sayfasına geçince de uygulanır.
 
-**Veriyi yorumlama.** PC enerjisi ardışık güç örneklerinden hesaplanır. Sistem uyuduğunda, uzun boşluklarda veya ölçüm kaynağı değiştiğinde kapsama eksilebilir. Açık kalma süresi ardışık toplayıcı kayıtlarına dayanır ve ilk kayıttan başlar. Aralıkların sınırları örnekleme sıklığına göre değişir. Grafikler Türkiye saatini kullanır. Sensör geçmişi son 24 saati kapsar. Donanım envanteri ilk kurulumda bir kez kaydedilir ve PC çevrimdışıyken de görünür. Disk bölümü doluluğu envanter tarihine aittir.
+**Veriyi yorumlama.** PC enerjisi ardışık güç örneklerinden hesaplanır. Sistem uyuduğunda, uzun boşluklarda veya ölçüm kaynağı değiştiğinde kapsama eksilebilir. Açık kalma süresi ardışık toplayıcı kayıtlarına dayanır ve ilk kayıttan başlar. Aralıkların sınırları örnekleme sıklığına göre değişir. Grafikler Türkiye saatini kullanır. Sensör grafiklerinin ham örnekleri 24 saat saklanır. Her grafik seçili aralık için en düşük, en yüksek ve aritmetik ortalama değerlerini gösterir. **Birikmiş istatistikler** son 24 saatten önceki örnekler silindikten sonra da SQLite'ta kalır. Eski kurulumlarda birikim, güncelleme sırasında hâlâ mevcut olan örneklerden başlar. Donanım envanteri ilk kurulumda bir kez kaydedilir ve PC çevrimdışıyken de görünür. Disk bölümü doluluğu envanter tarihine aittir.
 
 ## Uzak sunucuya kurulum
 
