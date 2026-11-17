@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#132923">
+  <title>Giriş yap | kWhTracker</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/auth.css">
+  <script src="/preferences.js"></script>
+  <script type="module" src="/login.js"></script>
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <div class="login-brand">
+      <div class="brand"><span class="brand-mark"><svg aria-hidden="true"><use href="/icons.svg#bolt"/></svg></span>kWhTracker</div>
+      <p>Enerji ve cihaz takibi</p>
+      <div class="login-graph" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+    </div>
+    <section class="login-content" aria-labelledby="login-title">
+      <label class="login-language"><span>Dil</span><select id="language" aria-label="Dil">
+        <option value="tr" lang="tr">Türkçe</option><option value="en" lang="en">English</option>
+      </select></label>
+      <header>
+        <h1 id="login-title">Giriş yap</h1>
+        <p id="login-hint" hidden>Google Authenticator’da kWhTracker için görünen 6 haneli kodu gir.</p>
+      </header>
+      <form id="login-form" method="post" action="/api/login">
+        <div id="login-credentials">
+          <div class="auth-field">
+            <label for="login-user">Kullanıcı adı</label>
+            <input id="login-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          </div>
+          <div class="auth-field">
+            <label for="login-password">Parola</label>
+            <div class="password-field">
+              <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+              <button id="password-toggle" type="button" aria-controls="login-password" hidden>Göster</button>
+            </div>
+          </div>
+          <label class="remember-option">
+            <input id="remember-login" name="remember" type="checkbox" aria-describedby="remember-hint">
+            <span>Beni hatırla<small id="remember-hint">Bu tarayıcıda 30 gün açık kal.</small></span>
+          </label>
+        </div>
+        <div class="auth-field" id="login-code-field" hidden>
+          <label for="login-code">Doğrulama kodu</label>
+          <input id="login-code" class="auth-code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" aria-describedby="login-hint">
+        </div>
+        <p id="login-error" class="auth-error" role="alert" hidden></p>
+        <button class="primary" id="login-submit" type="submit" disabled>Giriş yap</button>
+        <button id="login-back" class="auth-text-button" type="button" hidden>Giriş bilgilerine dön</button>
+        <noscript>Giriş yapmak için tarayıcında JavaScript’i etkinleştir.</noscript>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

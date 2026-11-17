@@ -1,4 +1,49 @@
 const english = {
+  'Enerji ve cihaz takibi': 'Energy and device tracking',
+  'Giriş yap': 'Sign in',
+  'Parola': 'Password',
+  'Göster': 'Show',
+  'Gizle': 'Hide',
+  'Parolayı göster': 'Show password',
+  'Parolayı gizle': 'Hide password',
+  'Beni hatırla': 'Remember me',
+  'Bu tarayıcıda 30 gün açık kal.': 'Stay signed in on this browser for 30 days.',
+  'Kodla doğrula': 'Verify your sign-in',
+  'Doğrulama kodu': 'Verification code',
+  'Google Authenticator’da kWhTracker için görünen 6 haneli kodu gir.': 'Enter the six-digit kWhTracker code from Google Authenticator.',
+  'Doğrula ve giriş yap': 'Verify and sign in',
+  'Giriş bilgilerine dön': 'Back to sign-in details',
+  'Giriş yapmak için tarayıcında JavaScript’i etkinleştir.': 'Enable JavaScript in your browser to sign in.',
+  'Kontrol ediliyor…': 'Checking…',
+  'Kullanıcı adı veya parola hatalı.': 'The username or password is incorrect.',
+  'Kod geçersiz veya daha önce kullanılmış. Yeni kodu dene.': 'That code is invalid or has already been used. Try a new code.',
+  'Oturumun sona erdi. Tekrar giriş yap.': 'Your session has expired. Sign in again.',
+  'Çok fazla kimlik doğrulama denemesi. Bir dakika sonra tekrar dene.': 'Too many authentication attempts. Try again in a minute.',
+  'Hesap ve güvenlik': 'Account and security',
+  'Güvenlik durumu alınıyor…': 'Checking security settings…',
+  'İki adımlı doğrulamayı açmak için panel parolanı gir.': 'Enter your dashboard password to set up two-step verification.',
+  'Google Authenticator’da + simgesine dokunup Kurulum anahtarı gir’i seç. Hesap türü olarak Zamana dayalı’yı seç.': 'In Google Authenticator, tap + and choose Enter a setup key. Select Time based as the account type.',
+  'Uygulamaya hesabı ekle ve üretilen 6 haneli kodu gir.': 'Add the account to the app and enter the six-digit code it generates.',
+  'Panel parolası': 'Dashboard password',
+  'Hesap adı': 'Account name',
+  'Kurulum anahtarı': 'Setup key',
+  'Kopyala': 'Copy',
+  'Kuruluma başla': 'Start setup',
+  'Kurulum anahtarı kopyalandı.': 'Setup key copied.',
+  'Kurulum anahtarını kopyalamak için seçili metni kullan.': 'Copy the highlighted setup key.',
+  'Doğrulamayı etkinleştir': 'Enable verification',
+  'İki adımlı doğrulama açık.': 'Two-step verification is on.',
+  'İki adımlı doğrulama açıldı.': 'Two-step verification enabled.',
+  'İki adımlı doğrulama kapatıldı.': 'Two-step verification disabled.',
+  'İki adımlı doğrulamayı kapat': 'Turn off two-step verification',
+  'İki adımlı doğrulamayı kapatmak için parolanı ve geçerli bir kodu gir.': 'Enter your password and a current code to turn off two-step verification.',
+  'Doğrulamayı kapat': 'Turn off verification',
+  'Parola hatalı.': 'The password is incorrect.',
+  'Google Authenticator zaten etkin.': 'Google Authenticator is already enabled.',
+  'Kurulum süresi doldu. Yeni bir kurulum anahtarı oluştur.': 'Setup expired. Generate a new setup key.',
+  'Google Authenticator sıfırlandı.': 'Google Authenticator has been reset.',
+  'Geri dön': 'Go back',
+  'Çıkış yap': 'Sign out',
   'Panel': 'Dashboard',
   'Genel bakış': 'Overview',
   'Cihazlar': 'Devices',
@@ -423,13 +468,14 @@ export function setupPreferences(onLanguage) {
   });
   const theme = saved('theme');
   const systemTheme = matchMedia('(prefers-color-scheme: dark)');
-  themeSelect.value = theme === 'light' || theme === 'dark' ? theme : 'system';
+  if (themeSelect) themeSelect.value = theme === 'light' || theme === 'dark' ? theme : 'system';
   function updateTheme() {
-    const active = themeSelect.value === 'system' ? (systemTheme.matches ? 'dark' : 'light') : themeSelect.value;
+    const selected = themeSelect?.value ?? theme;
+    const active = selected === 'light' || selected === 'dark' ? selected : systemTheme.matches ? 'dark' : 'light';
     document.documentElement.dataset.theme = active;
     document.querySelector('[name=theme-color]').content = active === 'dark' ? '#17241f' : '#132923';
   }
-  themeSelect.addEventListener('change', () => {
+  themeSelect?.addEventListener('change', () => {
     remember('theme', themeSelect.value);
     updateTheme();
   });

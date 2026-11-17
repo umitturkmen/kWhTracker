@@ -1,5 +1,6 @@
 import { renderPc } from './pc-details.js';
 import { renderActivity } from './activity.js';
+import { setupAccount } from './account.js';
 import { bucketLabel, dateFormat as localDate, language, locale, setupPreferences, t, translateIssue } from './i18n.js';
 
 const $ = id => document.getElementById(id);
@@ -49,11 +50,13 @@ function notice(message = '') {
 async function api(url, options) {
   const response = await fetch(url, { ...options, headers: { ...options?.headers, 'Accept-Language': language } });
   if (!response.ok) {
+    if (response.status === 401) location.reload();
     const error = await response.json().catch(() => ({}));
     throw new Error(error.error ?? 'Sunucudan yanıt alınamadı.');
   }
   return response.json();
 }
+const renderAccount = setupAccount(api);
 
 function getStatus(device) {
   if (device.source === 'pc') {
@@ -232,6 +235,7 @@ function renderChart() {
 }
 
 function render() {
+  $('account').hidden = data.demo;
   const prefix = t(captions[data.period]);
   const amount = data.summary[data.period];
   const pc = data.pcOnly || data.devices[0]?.source === 'pc';
@@ -388,6 +392,7 @@ function navigation() {
 window.addEventListener('hashchange', navigation);
 navigation();
 setupPreferences(() => {
+  renderAccount();
   date = localDate({ day: 'numeric', month: 'long', year: 'numeric' });
   clock = localDate({ hour: '2-digit', minute: '2-digit', second: '2-digit' });
   fullTime = localDate({ day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });

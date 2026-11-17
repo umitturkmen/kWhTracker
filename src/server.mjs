@@ -1,10 +1,11 @@
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 import { resolve } from 'node:path';
 import { periods } from './calendar.mjs';
 import { seedDemo } from './demo.mjs';
+import { same } from './panel-auth.mjs';
 import { macAddress, pcIdPattern, report } from './report.mjs';
 import { openStore } from './store.mjs';
 import { translate } from '../public/i18n.js';
@@ -27,12 +28,26 @@ if (!demo && (password.length < 16 || agentToken.length < 32 || password === age
 }
 if (!Number.isFinite(freshMs) || freshMs < 60_000) throw new Error(consoleCopy('STALE_AFTER_SECONDS en az 60 olmalı.'));
 
-const store = openStore(demo ? ':memory:' : resolve(process.env.DB_PATH ?? 'data/cihaz-takip.sqlite'));
+const secure = origin?.startsWith('https://');
+const store = openStore(demo ? ':memory:' : resolve(process.env.DB_PATH ?? 'data/cihaz-takip.sqlite'),
+  demo ? undefined : { user, password, secure });
+const panel = store.panelAuth;
+if (process.argv.includes('--reset-authenticator')) {
+  if (!panel) throw new Error('The demo has no authenticator to reset.');
+  panel.reset();
+  store.close();
+  console.log(consoleCopy('Google Authenticator sıfırlandı.'));
+  process.exit(0);
+}
 const demoTime = demo ? Date.now() : null;
 if (demo) seedDemo(store, demoTime);
+const loginPage = readFileSync(new URL('../public/login.html', import.meta.url));
 const assets = new Map([
   ['/', ['index.html', 'text/html; charset=utf-8']],
   ['/style.css', ['style.css', 'text/css; charset=utf-8']],
+  ['/auth.css', ['auth.css', 'text/css; charset=utf-8']],
+  ['/login.js', ['login.js', 'text/javascript; charset=utf-8']],
+  ['/account.js', ['account.js', 'text/javascript; charset=utf-8']],
   ['/app.js', ['app.js', 'text/javascript; charset=utf-8']],
   ['/pc-details.js', ['pc-details.js', 'text/javascript; charset=utf-8']],
   ['/sensor-chart.js', ['sensor-chart.js', 'text/javascript; charset=utf-8']],
@@ -45,11 +60,6 @@ const assets = new Map([
   ['/instrument-ext.woff2', ['instrument-ext.woff2', 'font/woff2']]
 ].map(([path, [file, type]]) => [path, [type, readFileSync(new URL('../public/' + file, import.meta.url))]]));
 assets.set('/sensor-types.mjs', ['text/javascript; charset=utf-8', readFileSync(new URL('./sensor-types.mjs', import.meta.url))]);
-
-function same(value, expected) {
-  const digest = input => createHash('sha256').update(input).digest();
-  return timingSafeEqual(digest(value), digest(expected));
-}
 
 function fail(status, message) {
   throw Object.assign(new Error(message), { status });
@@ -73,25 +83,44 @@ async function readJson(request) {
   }
 }
 
-const basic = 'Basic ' + Buffer.from(user + ':' + password, 'utf8').toString('base64');
 const localOrigins = new Set(['http://127.0.0.1:' + port, 'http://localhost:' + port, 'http://[::1]:' + port, origin]);
 const failedAuth = new Map();
 const failureWindow = 60_000;
-function rejectAuth(request, response, reason, panel = false) {
+const codeLimit = 'panel:authenticator';
+const authenticatorActions = {
+  '/api/authenticator/setup': 'startSetup',
+  '/api/authenticator/enable': 'finishSetup',
+  '/api/authenticator/disable': 'disable'
+};
+function addressOf(request) {
   const forwarded = trustProxy ? request.headers['x-forwarded-for']?.split(',').at(-1)?.trim() : null;
-  const address = forwarded && isIP(forwarded) ? forwarded : request.socket.remoteAddress;
+  return forwarded && isIP(forwarded) ? forwarded : request.socket.remoteAddress;
+}
+function checkLimit(key, limit, response) {
+  const entry = failedAuth.get(key);
   const now = Date.now();
-  const entry = failedAuth.get(address);
-  if (entry && now < entry.until && entry.count >= 20) {
+  if (entry && now < entry.until && entry.count >= limit) {
     response.setHeader('Retry-After', Math.ceil((entry.until - now) / 1000));
-    fail(429, 'Çok fazla kimlik doğrulama denemesi.');
+    fail(429, 'Çok fazla kimlik doğrulama denemesi. Bir dakika sonra tekrar dene.');
   }
+}
+function recordFailure(key) {
+  const now = Date.now();
+  const entry = failedAuth.get(key);
   if (!entry || now >= entry.until) {
-    if (failedAuth.size >= 4096) failedAuth.delete(failedAuth.keys().next().value);
-    failedAuth.set(address, { until: now + failureWindow, count: 1 });
+    if (failedAuth.size >= 4096) {
+      const keys = failedAuth.keys();
+      const oldest = keys.next().value;
+      failedAuth.delete(oldest === codeLimit ? keys.next().value : oldest);
+    }
+    failedAuth.set(key, { until: now + failureWindow, count: 1 });
   } else entry.count++;
-  if (panel) response.setHeader('WWW-Authenticate', 'Basic realm="Cihaz Takip", charset="UTF-8"');
-  fail(401, reason);
+}
+function rejectAgent(request, response) {
+  const key = 'agent:' + addressOf(request);
+  checkLimit(key, 20, response);
+  recordFailure(key);
+  fail(401, 'Toplayıcı anahtarı geçersiz.');
 }
 let refresh = null;
 function refreshState() {
@@ -107,7 +136,7 @@ const server = createServer(async (request, response) => {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('Referrer-Policy', 'no-referrer');
-  if (origin?.startsWith('https://')) response.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  if (secure) response.setHeader('Strict-Transport-Security', 'max-age=31536000');
   response.setHeader('Content-Security-Policy', "default-src 'self'; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'");
   const json = (status, value) => {
     response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -118,12 +147,12 @@ const server = createServer(async (request, response) => {
     const path = url.pathname;
     const auth = request.headers.authorization ?? '';
     if (request.method === 'GET' && path === '/api/agent/request' && !demo) {
-      if (!same(auth, 'Bearer ' + agentToken)) rejectAuth(request, response, 'Toplayıcı anahtarı geçersiz.');
+      if (!same(auth, 'Bearer ' + agentToken)) rejectAgent(request, response);
       const pending = refreshState();
       return json(200, { requestId: pending?.status === 'pending' ? pending.id : null });
     }
     if (request.method === 'POST' && path === '/api/ingest' && !demo) {
-      if (!same(auth, 'Bearer ' + agentToken)) rejectAuth(request, response, 'Toplayıcı anahtarı geçersiz.');
+      if (!same(auth, 'Bearer ' + agentToken)) rejectAgent(request, response);
       const input = await readJson(request);
       let batch;
       try {
@@ -143,14 +172,63 @@ const server = createServer(async (request, response) => {
       }
       return json(200, { saved: true });
     }
-    if (!demo && !same(auth, basic)) {
-      rejectAuth(request, response, 'Panel kullanıcı adı ve şifresi gerekli.', true);
-    }
     const devicePage = path.match(/^\/cihaz\/([a-f0-9:-]+)$/);
     if (request.method === 'GET' && (assets.has(path) || devicePage)) {
       const [type, body] = assets.get(devicePage ? '/' : path);
       response.writeHead(200, { 'Content-Type': type });
-      return response.end(body);
+      return response.end((path === '/' || devicePage) && panel && !panel.session(request) ? loginPage : body);
+    }
+    if (panel && request.method === 'POST' && path === '/api/login') {
+      requireOrigin(request);
+      const body = await readJson(request);
+      const key = 'panel:' + addressOf(request);
+      checkLimit(key, 10, response);
+      if (body?.code) checkLimit(codeLimit, 10, response);
+      const result = panel.login(request, body);
+      if (result.error) {
+        recordFailure(key);
+        if (result.error === 'code') recordFailure(codeLimit);
+        fail(result.error === 'code' ? 400 : 401, result.error === 'code'
+          ? 'Kod geçersiz veya daha önce kullanılmış. Yeni kodu dene.' : 'Kullanıcı adı veya parola hatalı.');
+      }
+      if (result.needsCode) return json(200, { needsCode: true });
+      response.setHeader('Set-Cookie', result.cookie);
+      return json(200, { signedIn: true });
+    }
+    if (panel && request.method === 'POST' && path === '/api/logout') {
+      requireOrigin(request);
+      response.setHeader('Set-Cookie', panel.logout(panel.session(request)));
+      return json(200, { signedOut: true });
+    }
+    if (panel && !panel.session(request)) fail(401, 'Oturumun sona erdi. Tekrar giriş yap.');
+    if (panel && request.method === 'GET' && path === '/api/authenticator') {
+      return json(200, { enabled: panel.enabled() });
+    }
+    if (panel && request.method === 'POST' && Object.hasOwn(authenticatorActions, path)) {
+      requireOrigin(request);
+      const body = await readJson(request);
+      const current = panel.session(request);
+      if (!current) fail(401, 'Oturumun sona erdi. Tekrar giriş yap.');
+      const key = 'panel:' + addressOf(request);
+      checkLimit(key, 10, response);
+      if (path !== '/api/authenticator/setup') checkLimit(codeLimit, 10, response);
+      const result = panel[authenticatorActions[path]](current, body);
+      if (result.error === 'password') {
+        recordFailure(key);
+        fail(403, 'Parola hatalı.');
+      }
+      if (result.error === 'code') {
+        recordFailure(key);
+        recordFailure(codeLimit);
+        fail(400, 'Kod geçersiz veya daha önce kullanılmış. Yeni kodu dene.');
+      }
+      if (result.error === 'enabled') fail(409, 'Google Authenticator zaten etkin.');
+      if (result.error === 'expired') fail(409, 'Kurulum süresi doldu. Yeni bir kurulum anahtarı oluştur.');
+      if (result.cookie) {
+        response.setHeader('Set-Cookie', result.cookie);
+        return json(200, { enabled: panel.enabled() });
+      }
+      return json(200, result);
     }
     if (request.method === 'GET' && path === '/api/dashboard') {
       const period = url.searchParams.get('period') ?? 'week';
@@ -191,7 +269,7 @@ const server = createServer(async (request, response) => {
 
 server.requestTimeout = 15_000;
 server.headersTimeout = 10_000;
-server.listen(port, host, () => console.log(`kWhTracker${demo ? ' (' + consoleCopy('örnek veriler') + ')' : ''} http://${host}:${port}`));
+server.listen(port, host, () => console.log(`kWhTracker${demo ? ' (' + consoleCopy('örnek veriler') + ')' : ''} http://${host}:${server.address().port}`));
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.once(signal, () => server.close(() => store.close()));
 }

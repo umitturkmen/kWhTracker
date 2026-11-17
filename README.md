@@ -56,6 +56,10 @@ npm start
 
 [Yerel paneli](http://127.0.0.1:8787) aç. Kullanıcı adın `admin`. Parolayı kendi `.env` dosyandaki `PANEL_PASSWORD` satırından alabilirsin. Bu dosyayı paylaşma. İlk açılışta panel boş görünür.
 
+**Beni hatırla** seçeneği bu tarayıcıdaki oturumu 30 gün açık tutar. Google Authenticator’ı bağlamak için panelde **Hesap ve güvenlik → Kuruluma başla** adımlarını izle. Uygulamada kurulum anahtarını **Zamana dayalı** olarak ekle ve üretilen 6 haneli kodla doğrula. Sonraki girişlerde parolanın ardından güncel kod istenir. SQLite veritabanı doğrulama anahtarını da içerir. Yedeklerini özel tut.
+
+Doğrulama kodlarına erişimini kaybedersen panelin kurulu olduğu makinede `npm start -- --reset-authenticator` çalıştır. Docker için proje kökünden `sudo docker compose --project-directory . -f deploy/compose.yml exec panel node src/server.mjs --reset-authenticator` kullan. Sıfırlama mevcut oturumları kapatır. Parolanla tekrar giriş yapıp Google Authenticator’ı yeniden bağlayabilirsin.
+
 ### 2. Windows toplayıcısını bağla
 
 İkinci PowerShell penceresinde aynı proje klasörüne geç.

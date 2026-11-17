@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { hourMs, ranges } from './calendar.mjs';
+import { openPanelAuth } from './panel-auth.mjs';
 import { trendCharts, trendSensors, trendValue, numericSensor } from './sensor-types.mjs';
 
 const activityJoinMs = 4 * 60_000;
@@ -25,7 +26,7 @@ function groupActivity(rows) {
   return sessions;
 }
 
-export function openStore(path) {
+export function openStore(path, panelOptions) {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
   const db = new DatabaseSync(path, { timeout: 5000 });
   db.exec(`
@@ -404,5 +405,6 @@ export function openStore(path) {
       })
     };
   }
-  return { ingest, dashboard, setTariff: value => set.run('tariff', String(value)), close: () => db.close() };
+  const panelAuth = panelOptions ? openPanelAuth(db, panelOptions) : null;
+  return { ingest, dashboard, panelAuth, setTariff: value => set.run('tariff', String(value)), close: () => db.close() };
 }

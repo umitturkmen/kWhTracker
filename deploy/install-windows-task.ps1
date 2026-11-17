@@ -7,9 +7,18 @@ if (!(Test-Path -LiteralPath $config) -or !(Test-Path -LiteralPath $envFile)) {
 }
 $node = (Get-Command node.exe).Source
 $account = [Security.Principal.WindowsIdentity]::GetCurrent().Name
-$arguments = '-NoProfile -NonInteractive -WindowStyle Hidden -Command "& ''' + $node +
-    ''' --env-file=.env src/agent.mjs; exit $LASTEXITCODE"'
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments -WorkingDirectory $project
+$source = Join-Path $PSScriptRoot 'agent-launcher.cs'
+$buildDir = Join-Path $project 'data\windows-task'
+$null = New-Item -ItemType Directory -Path $buildDir -Force
+# A source change gets a new executable so the running task can keep its file until registration succeeds.
+$hash = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash
+$launcher = Join-Path $buildDir "agent-launcher-$hash.exe"
+if (!(Test-Path -LiteralPath $launcher -PathType Leaf)) {
+    $compiler = Join-Path $env:WINDIR 'Microsoft.NET\Framework\v4.0.30319\csc.exe'
+    & $compiler /nologo /optimize+ /target:winexe "/out:$launcher" $source
+    if ($LASTEXITCODE -ne 0) { throw 'Agent launcher compilation failed.' }
+}
+$action = New-ScheduledTaskAction -Execute $launcher -Argument ('"' + $node + '"') -WorkingDirectory $project
 $onLogon = New-ScheduledTaskTrigger -AtLogOn -User $account
 # Restore the collector after exits that Task Scheduler does not automatically retry.
 $recovery = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
@@ -19,6 +28,7 @@ $settings = New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) 
     -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
     -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
 $name = 'Cihaz Takip PC'
-Register-ScheduledTask -TaskName $name -Action $action -Trigger @($onLogon, $recovery) -Principal $principal -Settings $settings -Force | Out-Null
-Start-ScheduledTask -TaskName $name
-Get-ScheduledTask -TaskName $name | Select-Object TaskName, State
+$task = Register-ScheduledTask -TaskName $name -TaskPath '\' -Action $action -Trigger @($onLogon, $recovery) -Principal $principal -Settings $settings -Force
+if ($task.State -eq 'Running') { Stop-ScheduledTask -InputObject $task }
+Start-ScheduledTask -InputObject $task
+Get-ScheduledTask -TaskName $name -TaskPath '\' | Select-Object TaskName, State

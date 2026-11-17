@@ -56,6 +56,10 @@ npm start
 
 Open the [local dashboard](http://127.0.0.1:8787). Sign in as `admin` using `PANEL_PASSWORD` from your local `.env`. Keep this file private. The dashboard starts out empty.
 
+**Remember me** keeps this browser signed in for 30 days. To connect Google Authenticator, open **Account and security → Start setup**. Add the setup key to the app as **Time based**, then enter the six-digit code it generates. Future sign-ins ask for a current code after your password. The SQLite database also contains the authenticator key. Keep its backups private.
+
+If you lose access to your codes, run `npm start -- --reset-authenticator` on the machine hosting the panel. For Docker, run `sudo docker compose --project-directory . -f deploy/compose.yml exec panel node src/server.mjs --reset-authenticator` from the project root. Resetting signs out all active sessions. Sign in with your password to connect the authenticator again.
+
 ### 2. Connect the Windows collector
 
 Open a second PowerShell window in the same project folder.
